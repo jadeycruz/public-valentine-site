@@ -4111,6 +4111,12 @@ const HeartBlaster = (() => {
   function switchMapForWave(waveNum) {
     const mi = isBossWave(waveNum) ? BOSS_MAP_INDEX : mapIndexForWave(waveNum);
 
+    // mobile grenade button only during boss wave
+    if (HB_IS_MOBILE) {
+      hbBuildMobileControlsOnce();
+      hbBuildMobileControlsOnce._setGrenadeVisible?.(isBossWave(waveNum));
+    }
+
     // apply map + update derived dims
     S.mapIndex = mi;
     applyMap(mi);
@@ -4131,6 +4137,111 @@ const HeartBlaster = (() => {
   function getArenaWrap() {
     return document.getElementById("hbArenaWrap");
   }
+
+  // ===== Mobile / Fullscreen helpers =====
+  const HB_IS_MOBILE =
+    matchMedia?.("(pointer: coarse)")?.matches ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  let _hbMobileUIBuilt = false;
+  let _hbFSActive = false;
+
+  function hbApplyMobileFullscreenStyles(on) {
+    const wrap = getArenaWrap();
+    if (!wrap) return;
+
+    // stash original inline styles once
+    if (!wrap._hbPrevStyle) {
+      wrap._hbPrevStyle = {
+        position: wrap.style.position,
+        inset: wrap.style.inset,
+        width: wrap.style.width,
+        height: wrap.style.height,
+        zIndex: wrap.style.zIndex,
+        background: wrap.style.background,
+        borderRadius: wrap.style.borderRadius,
+      };
+    }
+
+    if (on) {
+      document.documentElement.style.height = "100%";
+      document.body.style.height = "100%";
+      document.body.style.overflow = "hidden";
+
+      wrap.style.position = "fixed";
+      wrap.style.inset = "0";
+      wrap.style.width = "100vw";
+      wrap.style.height = "100vh";
+      wrap.style.zIndex = "9999";
+      wrap.style.background = "#000";
+      wrap.style.borderRadius = "0";
+    } else {
+      document.body.style.overflow = "";
+
+      const p = wrap._hbPrevStyle;
+      wrap.style.position = p.position;
+      wrap.style.inset = p.inset;
+      wrap.style.width = p.width;
+      wrap.style.height = p.height;
+      wrap.style.zIndex = p.zIndex;
+      wrap.style.background = p.background;
+      wrap.style.borderRadius = p.borderRadius;
+    }
+  }
+
+  async function hbEnterFullscreen() {
+    const wrap = getArenaWrap();
+    if (!wrap) return;
+
+    // IMPORTANT: don’t pop out on mobile
+    try { if (isPoppedOut) popIn(); } catch {}
+
+    // hide pop button on mobile (optional but nice)
+    try { el.heartBlasterPopBtn?.classList.add("hidden"); } catch {}
+
+    // request fullscreen (best effort)
+    try {
+      if (!document.fullscreenElement && wrap.requestFullscreen) {
+        await wrap.requestFullscreen({ navigationUI: "hide" });
+      }
+      _hbFSActive = true;
+      hbApplyMobileFullscreenStyles(true);
+    } catch {
+      // iOS Safari may not allow requestFullscreen; still apply fixed styles
+      _hbFSActive = true;
+      hbApplyMobileFullscreenStyles(true);
+    }
+
+    // try lock landscape (best effort; may fail on iOS)
+    try {
+      await screen.orientation?.lock?.("landscape");
+    } catch {}
+
+    // make sure canvas matches new viewport
+    requestAnimationFrame(() => {
+      resizeCanvas();
+      draw();
+    });
+  }
+
+  async function hbExitFullscreen() {
+    _hbFSActive = false;
+    hbApplyMobileFullscreenStyles(false);
+
+    try { screen.orientation?.unlock?.(); } catch {}
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch {}
+
+    // restore pop button (desktop / tablets)
+    try { el.heartBlasterPopBtn?.classList.remove("hidden"); } catch {}
+
+    requestAnimationFrame(() => {
+      resizeCanvas();
+      draw();
+    });
+  }
+
 
   function popOut() {
     if (isPoppedOut) return;
@@ -4196,9 +4307,6 @@ const HeartBlaster = (() => {
       lines: [
         "The corruption spreads…",
         "",
-        "Eliminate all hostile hearts.",
-        "Keep moving. Don't let them surround you.",
-        "",
         "Full Ammo.",
         "Survive.",
       ],
@@ -4209,11 +4317,7 @@ const HeartBlaster = (() => {
       lines: [
         "The roses have turned toxic…",
         "",
-        "Faster enemies detected.",
-        "Control space. Don't get cornered.",
-        "",
         "Ammo refilled.",
-        "Stay sharp.",
       ],
     },
 
@@ -4222,12 +4326,7 @@ const HeartBlaster = (() => {
       lines: [
         "Cupid has fallen.",
         "",
-        "Ranged attacks incoming.",
-        "Strafe constantly.",
-        "Use walls wisely.",
-        "",
         "Ammo refilled.",
-        "Make every shot count.",
       ],
     },
 
@@ -4235,10 +4334,6 @@ const HeartBlaster = (() => {
       title: "WAVE 4 🧸 JEALOUSY AWAKENS",
       lines: [
         "Something heavier approaches…",
-        "",
-        "High-damage threats detected.",
-        "Keep distance.",
-        "Prioritize threats wisely.",
         "",
         "Ammo refilled.",
         "Stay alive.",
@@ -4249,12 +4344,8 @@ const HeartBlaster = (() => {
       title: "WAVE 5 💀 TOTAL CORRUPTION",
       lines: [
         "Love has fully collapsed…",
-        "Total corruption unleashed.",
         "",
         "Multiple enemy types detected.",
-        "Close range. Swarm. Ranged. Heavy.",
-        "",
-        "Adapt fast. Control chaos.",
         "",
         "Ammo refilled.",
       ],
@@ -4265,15 +4356,10 @@ const HeartBlaster = (() => {
       lines: [
         "Something ancient awakens…",
         "",
-        "This entity has multiple phases.",
-        "Expect transformation midway.",
-        "",
-        "Clear minions quickly.",
-        "Watch your health.",
+        "This entity has multiple phases. Expect transformation.",
         "",
         "Ammo refilled.",
         "Watch out for special pickups (grenades).",
-        "Finish this.",
       ],
     },
   };
@@ -5866,11 +5952,11 @@ const HeartBlaster = (() => {
 
     // Your requested milestones:
     doMilestone("1.00", 1.00, { normal: 3 });
-    doMilestone("0.80", 0.80, { fast: 2 });
-    doMilestone("0.60", 0.60, { sniper: 1 });
+    doMilestone("0.80", 0.80, { fast: 3 });
+    doMilestone("0.60", 0.60, { sniper: 2 });
     doMilestone("0.50", 0.50, { normal: 3 });
-    doMilestone("0.40", 0.40, { tank: 1 });
-    doMilestone("0.20", 0.20, { tank: 2 });
+    doMilestone("0.40", 0.40, { tank: 2 });
+    doMilestone("0.20", 0.20, { tank: 3 });
 
     // spawn a second (max 3) minion wave at 50% HP (only once)
     if (hpFrac <= 0.5 && b.minionsHalfDone === false) {
@@ -7852,18 +7938,293 @@ const HeartBlaster = (() => {
     S.touchActive = false;
   }
 
+  // ===== Mobile Controls UI (joystick + buttons) =====
+  function hbBuildMobileControlsOnce() {
+    if (_hbMobileUIBuilt) return;
+    _hbMobileUIBuilt = true;
+
+    const wrap = getArenaWrap();
+    if (!wrap) return;
+
+    // container
+    const uiLayer = document.createElement("div");
+    uiLayer.id = "hbMobileControls";
+    uiLayer.style.position = "absolute";
+    uiLayer.style.inset = "0";
+    uiLayer.style.pointerEvents = "none"; // children will enable pointer events
+    uiLayer.style.zIndex = "50";
+
+    // LEFT: joystick
+    const joy = document.createElement("div");
+    joy.id = "hbJoy";
+    joy.style.position = "absolute";
+    joy.style.left = "0";
+    joy.style.bottom = "0";
+    joy.style.width = "52%";
+    joy.style.height = "100%";
+    joy.style.pointerEvents = "auto";
+    joy.style.touchAction = "none"; // important
+    joy.style.userSelect = "none";
+
+    const joyBase = document.createElement("div");
+    joyBase.id = "hbJoyBase";
+    joyBase.style.position = "absolute";
+    joyBase.style.left = "14px";
+    joyBase.style.bottom = "14px";
+    joyBase.style.width = "120px";
+    joyBase.style.height = "120px";
+    joyBase.style.borderRadius = "999px";
+    joyBase.style.background = "rgba(255,255,255,0.08)";
+    joyBase.style.border = "1px solid rgba(255,255,255,0.18)";
+    joyBase.style.backdropFilter = "blur(3px)";
+
+    const joyKnob = document.createElement("div");
+    joyKnob.id = "hbJoyKnob";
+    joyKnob.style.position = "absolute";
+    joyKnob.style.left = "50%";
+    joyKnob.style.top = "50%";
+    joyKnob.style.width = "54px";
+    joyKnob.style.height = "54px";
+    joyKnob.style.marginLeft = "-27px";
+    joyKnob.style.marginTop = "-27px";
+    joyKnob.style.borderRadius = "999px";
+    joyKnob.style.background = "rgba(255,255,255,0.22)";
+    joyKnob.style.border = "1px solid rgba(255,255,255,0.30)";
+
+    joyBase.appendChild(joyKnob);
+    joy.appendChild(joyBase);
+
+    // RIGHT: buttons
+    const btns = document.createElement("div");
+    btns.id = "hbBtns";
+    btns.style.position = "absolute";
+    btns.style.right = "0";
+    btns.style.bottom = "0";
+    btns.style.width = "48%";
+    btns.style.height = "100%";
+    btns.style.pointerEvents = "none"; // enable on buttons only
+    btns.style.userSelect = "none";
+
+    function mkBtn(label) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      b.style.pointerEvents = "auto";
+      b.style.touchAction = "none";
+      b.style.userSelect = "none";
+      b.style.border = "1px solid rgba(255,255,255,0.28)";
+      b.style.background = "rgba(255,255,255,0.12)";
+      b.style.color = "#fff";
+      b.style.borderRadius = "16px";
+      b.style.padding = "14px 18px";
+      b.style.fontWeight = "700";
+      b.style.fontSize = "14px";
+      b.style.backdropFilter = "blur(3px)";
+      return b;
+    }
+
+    const shootBtn = mkBtn("SHOOT");
+    shootBtn.style.position = "absolute";
+    shootBtn.style.right = "14px";
+    shootBtn.style.bottom = "18px";
+
+    const grenadeBtn = mkBtn("GRENADE");
+    grenadeBtn.style.position = "absolute";
+    grenadeBtn.style.right = "14px";
+    grenadeBtn.style.bottom = "78px";
+    grenadeBtn.style.opacity = "0.0"; // shown only on boss wave
+
+    btns.appendChild(grenadeBtn);
+    btns.appendChild(shootBtn);
+
+    uiLayer.appendChild(joy);
+    uiLayer.appendChild(btns);
+    wrap.appendChild(uiLayer);
+
+    // --- joystick logic -> writes into S.keys (same keys updateMovement uses) ---
+    const joyState = {
+      id: null,
+      active: false,
+      baseX: 0,
+      baseY: 0,
+      dx: 0,
+      dy: 0,
+    };
+
+    function setMoveKeysFromVec(dx, dy) {
+      // threshold in px
+      const t = 14;
+      const up = dy < -t;
+      const down = dy > t;
+      const left = dx < -t;
+      const right = dx > t;
+
+      S.keys.w = up;
+      S.keys.s = down;
+      S.keys.a = left;
+      S.keys.d = right;
+    }
+
+    function resetJoy() {
+      joyState.active = false;
+      joyState.id = null;
+      joyState.dx = 0;
+      joyState.dy = 0;
+      setMoveKeysFromVec(0, 0);
+      joyKnob.style.transform = "translate(0px, 0px)";
+    }
+
+    joy.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (!HB_IS_MOBILE) return;
+        if (e.pointerType !== "touch") return;
+
+        // ignore if game over overlay etc.
+        if (S.over) return;
+
+        joyState.active = true;
+        joyState.id = e.pointerId;
+
+        const r = joyBase.getBoundingClientRect();
+        joyState.baseX = r.left + r.width / 2;
+        joyState.baseY = r.top + r.height / 2;
+
+        joy.setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+
+    joy.addEventListener(
+      "pointermove",
+      (e) => {
+        if (!joyState.active || e.pointerId !== joyState.id) return;
+
+        const max = 38; // knob clamp radius
+        let dx = e.clientX - joyState.baseX;
+        let dy = e.clientY - joyState.baseY;
+
+        const mag = Math.hypot(dx, dy) || 1;
+        if (mag > max) {
+          dx = (dx / mag) * max;
+          dy = (dy / mag) * max;
+        }
+
+        joyState.dx = dx;
+        joyState.dy = dy;
+
+        joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        setMoveKeysFromVec(dx, dy);
+
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+
+    joy.addEventListener(
+      "pointerup",
+      (e) => {
+        if (e.pointerId !== joyState.id) return;
+        resetJoy();
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+
+    joy.addEventListener(
+      "pointercancel",
+      (e) => {
+        if (e.pointerId !== joyState.id) return;
+        resetJoy();
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+
+    // --- SHOOT button (hold to fire) ---
+    let shootHoldTimer = null;
+
+    function startShootHold() {
+      if (shootHoldTimer) return;
+      shoot(); // first shot immediately
+      shootHoldTimer = setInterval(() => shoot(), 90);
+    }
+    function stopShootHold() {
+      if (!shootHoldTimer) return;
+      clearInterval(shootHoldTimer);
+      shootHoldTimer = null;
+    }
+
+    shootBtn.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (!HB_IS_MOBILE) return;
+        if (e.pointerType !== "touch") return;
+        if (S.over) return;
+        // If overlay is up, treat first tap as "start" instead of shooting
+        if (!ui.overlay.classList.contains("hidden")) {
+          beginRun();
+          e.preventDefault();
+          return;
+        }
+        startShootHold();
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+    shootBtn.addEventListener("pointerup", stopShootHold, { passive: true });
+    shootBtn.addEventListener("pointercancel", stopShootHold, { passive: true });
+
+    // --- GRENADE button ---
+    grenadeBtn.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (!HB_IS_MOBILE) return;
+        if (e.pointerType !== "touch") return;
+        if (S.over) return;
+        throwGrenade();
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+
+    // expose a tiny hook so HUD/wave logic can toggle grenade visibility
+    hbBuildMobileControlsOnce._setGrenadeVisible = (on) => {
+      grenadeBtn.style.opacity = on ? "1" : "0";
+      grenadeBtn.style.pointerEvents = on ? "auto" : "none";
+    };
+
+    // default off
+    hbBuildMobileControlsOnce._setGrenadeVisible(false);
+  }
+
   function bindUIOnce() {
     // mouse move
     window.addEventListener("mousemove", onMouseMove);
 
-    // click to lock + shoot
     ui.canvas.addEventListener("pointerdown", (e) => {
       e.preventDefault();
 
       // ✅ if game over, ignore ALL clicks until Restart
       if (S.over) return;
 
-      // If overlay is visible, treat canvas click as "start" (fixes pointer-lock trapping)
+      // MOBILE: don't pointer-lock; ensure fullscreen + build controls
+      if (HB_IS_MOBILE && e.pointerType === "touch") {
+        hbBuildMobileControlsOnce();
+        if (!_hbFSActive) hbEnterFullscreen();
+
+        // if overlay is visible, tapping canvas starts the run (no shooting)
+        if (!ui.overlay.classList.contains("hidden")) {
+          beginRun();
+          return;
+        }
+
+        // otherwise, let aiming be handled by touchmove; no auto-shoot here
+        return;
+      }
+
+      // Desktop: If overlay is visible, treat click as "start"
       if (!ui.overlay.classList.contains("hidden")) {
         if (!S.over && S.ready) {
           if (ui.canvas.requestPointerLock) requestLock();
@@ -7872,7 +8233,7 @@ const HeartBlaster = (() => {
         return;
       }
 
-      // If pointer lock supported, lock first so aiming feels right
+      // Desktop: lock first so aiming feels right
       if (
         document.pointerLockElement !== ui.canvas &&
         ui.canvas.requestPointerLock
@@ -7948,6 +8309,10 @@ const HeartBlaster = (() => {
 
     // ===== Pop-out arena controls =====
     el.heartBlasterPopBtn.addEventListener("click", () => {
+      if (HB_IS_MOBILE) {
+        hbEnterFullscreen();
+        return;
+      }
       popOut();
     });
 
@@ -8087,6 +8452,11 @@ const HeartBlaster = (() => {
   function stop() {
     try { SFX.boss_run.pause(); SFX.boss_run.currentTime = 0; } catch {}
     popIn();
+
+    // mobile fullscreen cleanup
+    if (HB_IS_MOBILE && _hbFSActive) {
+      hbExitFullscreen();
+    }
 
     stopHBMusic();
     resumeSiteMusic();
