@@ -7936,19 +7936,48 @@ const HeartBlaster = (() => {
     } catch {}
   }
 
-  // Mobile drag aiming
+  // Mobile drag aiming (ignores the left joystick finger)
   function onTouchStart(e) {
     if (!e.touches || !e.touches.length) return;
+
+    // pick a touch that is NOT on the joystick area
+    const joy = document.getElementById("hbJoy");
+    let t = null;
+
+    for (const touch of e.touches) {
+      const elAt = document.elementFromPoint(touch.clientX, touch.clientY);
+      const isOnJoy = joy && (elAt === joy || elAt?.closest?.("#hbJoy"));
+      if (!isOnJoy) {
+        t = touch;
+        break;
+      }
+    }
+
+    // if all touches are on joystick, don't start aiming
+    if (!t) return;
+
     S.touchActive = true;
-    S.lastTouchX = e.touches[0].clientX;
-    S.lastTouchY = e.touches[0].clientY;
+    S.aimTouchId = t.identifier;
+    S.lastTouchX = t.clientX;
+    S.lastTouchY = t.clientY;
 
     // first touch can start
     if (S.ready) beginRun();
   }
+
   function onTouchMove(e) {
     if (!S.touchActive || !e.touches || !e.touches.length) return;
-    const t = e.touches[0];
+
+    // keep aiming only with the chosen aim touch
+    let t = null;
+    for (const touch of e.touches) {
+      if (touch.identifier === S.aimTouchId) {
+        t = touch;
+        break;
+      }
+    }
+    if (!t) return;
+
     const dx = t.clientX - S.lastTouchX;
     const dy = t.clientY - S.lastTouchY;
     S.lastTouchX = t.clientX;
@@ -7965,9 +7994,29 @@ const HeartBlaster = (() => {
 
     requestSave(false);
   }
-  function onTouchEnd() {
-    S.touchActive = false;
+
+  function onTouchEnd(e) {
+    // if the aim finger lifted, stop aiming
+    if (!e.touches || e.touches.length === 0) {
+      S.touchActive = false;
+      S.aimTouchId = null;
+      return;
+    }
+
+    // if our aim touch no longer exists, stop aiming
+    let stillThere = false;
+    for (const touch of e.touches) {
+      if (touch.identifier === S.aimTouchId) {
+        stillThere = true;
+        break;
+      }
+    }
+    if (!stillThere) {
+      S.touchActive = false;
+      S.aimTouchId = null;
+    }
   }
+
 
   // ===== Mobile Controls UI (joystick + buttons) =====
   function hbBuildMobileControlsOnce() {
@@ -7984,6 +8033,34 @@ const HeartBlaster = (() => {
     uiLayer.style.inset = "0";
     uiLayer.style.pointerEvents = "none"; // children will enable pointer events
     uiLayer.style.zIndex = "50";
+
+    // TOP-LEFT: Exit button (so you can always leave fullscreen on mobile)
+    const exitBtn = document.createElement("button");
+    exitBtn.id = "hbExitBtn";
+    exitBtn.textContent = "← Exit";
+    exitBtn.style.position = "absolute";
+    exitBtn.style.left = "12px";
+    exitBtn.style.top = "calc(12px + env(safe-area-inset-top))";
+    exitBtn.style.zIndex = "60";
+    exitBtn.style.pointerEvents = "auto";
+    exitBtn.style.padding = "10px 14px";
+    exitBtn.style.borderRadius = "12px";
+    exitBtn.style.border = "1px solid rgba(255,255,255,0.25)";
+    exitBtn.style.background = "rgba(0,0,0,0.45)";
+    exitBtn.style.color = "#fff";
+    exitBtn.style.fontWeight = "700";
+    exitBtn.style.backdropFilter = "blur(6px)";
+    exitBtn.style.touchAction = "manipulation";
+
+    exitBtn.addEventListener("click", () => {
+      // same behavior as your Back button
+      popIn();
+      stop();
+      showScreen(el.gamesMenu);
+      updateGamesContinue();
+    });
+
+    uiLayer.appendChild(exitBtn);
 
     // LEFT: joystick
     const joy = document.createElement("div");
@@ -8279,161 +8356,6 @@ const HeartBlaster = (() => {
     ui.canvas.addEventListener("touchstart", onTouchStart, { passive: true });
     ui.canvas.addEventListener("touchmove", onTouchMove, { passive: true });
     ui.canvas.addEventListener("touchend", onTouchEnd, { passive: true });
-
-    // ===============================
-    // Mobile MOVE joystick (WASD)
-    // ===============================
-    (function setupMoveJoystick() {
-      // Only enable on touch-capable devices
-      const isTouch =
-        "ontouchstart" in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
-      if (!isTouch) return;
-
-      // Avoid duplicates if bindUIOnce runs again
-      if (ui.game.querySelector(".hb-joy-wrap")) return;
-
-      const wrap = document.createElement("div");
-      wrap.className = "hb-joy-wrap";
-      wrap.innerHTML = `
-        <div class="hb-joy-base">
-          <div class="hb-joy-knob"></div>
-        </div>
-      `;
-
-      // Minimal inline styles so you don't need a CSS file edit
-      wrap.style.position = "absolute";
-      wrap.style.left = "14px";
-      wrap.style.bottom = "14px";
-      wrap.style.width = "160px";
-      wrap.style.height = "160px";
-      wrap.style.zIndex = "50";
-      wrap.style.touchAction = "none"; // critical for iOS/Android
-
-      const base = wrap.querySelector(".hb-joy-base");
-      const knob = wrap.querySelector(".hb-joy-knob");
-
-      base.style.position = "absolute";
-      base.style.left = "0";
-      base.style.top = "0";
-      base.style.width = "160px";
-      base.style.height = "160px";
-      base.style.borderRadius = "999px";
-      base.style.background = "rgba(255,255,255,0.10)";
-      base.style.border = "1px solid rgba(255,255,255,0.20)";
-      base.style.backdropFilter = "blur(6px)";
-      base.style.touchAction = "none";
-
-      knob.style.position = "absolute";
-      knob.style.left = "50%";
-      knob.style.top = "50%";
-      knob.style.width = "64px";
-      knob.style.height = "64px";
-      knob.style.borderRadius = "999px";
-      knob.style.transform = "translate(-50%, -50%)";
-      knob.style.background = "rgba(255,255,255,0.22)";
-      knob.style.border = "1px solid rgba(255,255,255,0.28)";
-      knob.style.touchAction = "none";
-
-      // Attach to the heart blaster game container (so it overlays the canvas)
-      ui.game.style.position = ui.game.style.position || "relative";
-      ui.game.appendChild(wrap);
-
-      let active = false;
-      let pid = null;
-
-      function resetKeys() {
-        S.keys.w = S.keys.a = S.keys.s = S.keys.d = false;
-      }
-
-      function setKeysFromVec(nx, ny) {
-        // ny: -1 = up (forward), +1 = down (back)
-        const dead = 0.18; // deadzone (lower = easier to trigger backward)
-        const ax = Math.abs(nx);
-        const ay = Math.abs(ny);
-
-        const left = nx < -dead && ax >= ay * 0.6;
-        const right = nx > dead && ax >= ay * 0.6;
-
-        const forward = ny < -dead && ay >= ax * 0.6;
-        const back = ny > dead && ay >= ax * 0.6;
-
-        S.keys.a = left;
-        S.keys.d = right;
-        S.keys.w = forward;
-        S.keys.s = back;
-      }
-
-      function updateFromPointer(clientX, clientY) {
-        const r = base.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-
-        let dx = clientX - cx;
-        let dy = clientY - cy;
-
-        const max = r.width * 0.35; // travel radius
-        const mag = Math.hypot(dx, dy) || 1;
-
-        if (mag > max) {
-          dx = (dx / mag) * max;
-          dy = (dy / mag) * max;
-        }
-
-        // move knob visually
-        knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-
-        // normalized vector
-        const nx = dx / max;
-        const ny = dy / max;
-
-        setKeysFromVec(nx, ny);
-      }
-
-      function endStick() {
-        active = false;
-        pid = null;
-        resetKeys();
-        knob.style.transform = "translate(-50%, -50%)";
-      }
-
-      // Use pointer events (best cross-platform)
-      base.addEventListener("pointerdown", (e) => {
-        // Don’t steal mouse on desktop
-        if (e.pointerType === "mouse") return;
-
-        active = true;
-        pid = e.pointerId;
-        base.setPointerCapture(pid);
-
-        // prevent page scroll / rubber-band
-        e.preventDefault();
-
-        // If game is ready, allow first touch to start too
-        if (S.ready) beginRun();
-
-        updateFromPointer(e.clientX, e.clientY);
-      });
-
-      base.addEventListener("pointermove", (e) => {
-        if (!active || e.pointerId !== pid) return;
-        e.preventDefault();
-        updateFromPointer(e.clientX, e.clientY);
-      });
-
-      base.addEventListener("pointerup", (e) => {
-        if (e.pointerId !== pid) return;
-        e.preventDefault();
-        endStick();
-      });
-
-      base.addEventListener("pointercancel", (e) => {
-        if (e.pointerId !== pid) return;
-        endStick();
-      });
-
-      // Safety: if pointer gets lost
-      window.addEventListener("blur", endStick);
-    })();
 
     // overlay click starts
     ui.overlay.addEventListener("pointerdown", (e) => {
