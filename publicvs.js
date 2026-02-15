@@ -8192,41 +8192,41 @@ const HeartBlaster = (() => {
       active: false,
       baseX: 0,
       baseY: 0,
-      dx: 0,
-      dy: 0,
     };
 
-    const MAX = 38; // knob clamp radius (must match below)
+    const MAX = 38;      // clamp radius in px
+    const DEAD = 6;      // small deadzone in px to prevent drift
 
-    // Ensure S.joy exists (updateMovement already reads this)
+    // Ensure S.joy exists (updateMovement reads this)
     S.joy = S.joy || { x: 0, y: 0, active: false, id: null };
 
-    function setJoyFromVec(dx, dy) {
+    function applyJoy(dx, dy) {
+      // deadzone
+      if (Math.hypot(dx, dy) < DEAD) {
+        S.joy.x = 0;
+        S.joy.y = 0;
+        return;
+      }
+
       // Normalize to [-1..1]
       const nx = Math.max(-1, Math.min(1, dx / MAX));   // left(-) / right(+)
       const ny = Math.max(-1, Math.min(1, -dy / MAX));  // up => +forward, down => -back
 
       S.joy.x = nx;
       S.joy.y = ny;
-      S.joy.active = true;
     }
 
     function resetJoy() {
       joyState.active = false;
       joyState.id = null;
-      joyState.dx = 0;
-      joyState.dy = 0;
 
-      // Clear analog
       S.joy.x = 0;
       S.joy.y = 0;
       S.joy.active = false;
       S.joy.id = null;
 
-      // Also clear any stuck digital keys from older joystick behavior (mobile only)
-      if (HB_IS_MOBILE) {
-        S.keys.w = S.keys.a = S.keys.s = S.keys.d = false;
-      }
+      // Clear any stuck keys (since your old joystick used keys)
+      S.keys.w = S.keys.a = S.keys.s = S.keys.d = false;
 
       joyKnob.style.transform = "translate(0px, 0px)";
     }
@@ -8241,11 +8241,11 @@ const HeartBlaster = (() => {
         joyState.active = true;
         joyState.id = e.pointerId;
 
-        const r = joyBase.getBoundingClientRect();
-        joyState.baseX = r.left + r.width / 2;
-        joyState.baseY = r.top + r.height / 2;
+        // IMPORTANT: use where the finger starts as the center
+        // This prevents “always forward” when the base is near the bottom of the screen.
+        joyState.baseX = e.clientX;
+        joyState.baseY = e.clientY;
 
-        // Start analog
         S.joy.active = true;
         S.joy.id = e.pointerId;
         S.joy.x = 0;
@@ -8271,14 +8271,8 @@ const HeartBlaster = (() => {
           dy = (dy / mag) * MAX;
         }
 
-        joyState.dx = dx;
-        joyState.dy = dy;
-
-        // Move knob visually
         joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-
-        // Write to analog joystick
-        setJoyFromVec(dx, dy);
+        applyJoy(dx, dy);
 
         e.preventDefault();
       },
@@ -8304,6 +8298,7 @@ const HeartBlaster = (() => {
       },
       { passive: false },
     );
+
 
 
     // --- SHOOT button (hold to fire) ---
