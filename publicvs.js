@@ -4133,6 +4133,7 @@ const HeartBlaster = (() => {
 
     // ✅ reposition player using marker-first safe spawn
     placePlayerAtSafeSpawn();
+    resetJoystick(); // prevents “stuck forward” after map switch on mobile
 
     // ✅ clear enemies between maps (fresh wave spawns)
     S.enemies = [];
@@ -4451,6 +4452,14 @@ const HeartBlaster = (() => {
       shift: false,
     },
 
+    joy: {
+      x: 0,      // -1..1 (left/right strafe)
+      y: 0,      // -1..1 (forward/back)  NOTE: forward = +1 (we’ll enforce this)
+      active: false,
+      id: null,  // touch identifier controlling movement
+      dead: 0.12 // deadzone
+    },
+
     // Gameplay Stats
     wave: 1,
     hp: CFG.hpStart,
@@ -4496,6 +4505,10 @@ const HeartBlaster = (() => {
     flashUntil: 0,
     gunAnimFrame: 0,
     gunAnimTick: 0,
+    hitFlashUntil: 0,
+    shakeUntil: 0,
+    shakeMag: 0,
+
 
     // Map
     mapIndex: 0,
@@ -6322,31 +6335,42 @@ const HeartBlaster = (() => {
   }
 
   function updateMovement(dt) {
-    // only move during active play
     if (!S.running) return;
 
-    const forward = S.keys.w || S.keys.up ? 1 : 0;
-    const back = S.keys.s || S.keys.down ? 1 : 0;
-    const left = S.keys.a || S.keys.left ? 1 : 0;
-    const right = S.keys.d || S.keys.right ? 1 : 0;
+    // --- Keyboard digital input (desktop) ---
+    const forward = (S.keys.w || S.keys.up) ? 1 : 0;
+    const back    = (S.keys.s || S.keys.down) ? 1 : 0;
+    const left    = (S.keys.a || S.keys.left) ? 1 : 0;
+    const right   = (S.keys.d || S.keys.right) ? 1 : 0;
 
-    // mvF = forward/back, mvS = strafe
-    let mvF = forward - back; // W/S
-    let mvS = right - left; // A/D
+    let mvF = forward - back;      // forward/back
+    let mvS = right - left;        // strafe
 
-    // normalize diagonals
-    const mag = Math.hypot(mvF, mvS) || 1;
-    mvF /= mag;
-    mvS /= mag;
+    // --- Mobile joystick analog input (adds on top) ---
+    // We treat joystick forward as +y (so pushing up is +forward)
+    if (S.joy && S.joy.active) {
+      const jx = S.joy.x || 0;     // strafe (- left, + right)
+      const jy = S.joy.y || 0;     // forward/back (+ forward, - back)
 
-    // speed
+      // Combine: joystick takes priority but still allows keyboard on tablets
+      mvS += jx;
+      mvF += jy;
+    }
+
+    // If nothing pressed, stop
+    const mag0 = Math.hypot(mvF, mvS);
+    if (mag0 < 1e-4) return;
+
+    // normalize diagonals / analog
+    mvF /= mag0;
+    mvS /= mag0;
+
     const sp = CFG.moveSpeed * dt * (S.keys.shift ? CFG.sprintMult : 1);
 
     const cy = Math.cos(S.yaw);
     const sy = Math.sin(S.yaw);
 
-    // Forward = facing direction (+X at yaw=0)
-    // Strafe  = perpendicular
+    // mvF = forward, mvS = strafe
     const dx = (mvF * cy - mvS * sy) * sp;
     const dz = (mvF * sy + mvS * cy) * sp;
 
@@ -7154,6 +7178,7 @@ const HeartBlaster = (() => {
   function startShake(ms = 320, mag = 10) {
     const now = performance.now();
     S.shakeUntil = now + ms;
+    S.shakeDur = ms;
     S.shakeMag = mag;
   }
 
@@ -7170,7 +7195,7 @@ const HeartBlaster = (() => {
       if (nowS < (S.shakeUntil || 0)) {
         const mag = S.shakeMag || 10;
         // decay to 0 as it ends
-        const k = (S.shakeUntil - nowS) / Math.max(1, (S.shakeUntil - (nowS - 16)));
+        const k = U.clamp((S.shakeUntil - nowS) / (S.shakeDur || 320), 0, 1);
         const dx = (Math.random() * 2 - 1) * mag * 0.6 * k;
         const dy = (Math.random() * 2 - 1) * mag * 0.6 * k;
         g.translate(dx, dy);
@@ -7721,6 +7746,7 @@ const HeartBlaster = (() => {
 
     // stop sim safely
     clearMoveKeys();
+    resetJoystick();
     S.ready = true;
     S.paused = true;
 
@@ -7747,6 +7773,8 @@ const HeartBlaster = (() => {
 
   function setGameOverOverlay(win) {
     S.over = true;
+    clearMoveKeys();
+    resetJoystick();
     S.running = false;
     S.ready = false;
     S.won = !!win;
@@ -7787,7 +7815,7 @@ const HeartBlaster = (() => {
     } else {
       ui.btnContinue.classList.add("hidden");
       el.hbModalContinueBtn.classList.add("hidden");
-      playSfx(SFX.over);
+      //playSfx(SFX.over);
     }
 
     showOverlay(true);
@@ -7835,6 +7863,7 @@ const HeartBlaster = (() => {
       S.lastT = 0;
       clearState();
     }
+    resetJoystick();
     updateHUD();
     setReadyOverlay();
     draw(); // show one frame
@@ -7843,6 +7872,14 @@ const HeartBlaster = (() => {
   function clearMoveKeys() {
     if (!S.keys) return;
     for (const k of Object.keys(S.keys)) S.keys[k] = false;
+  }
+
+  function resetJoystick() {
+    if (!S.joy) return;
+    S.joy.x = 0;
+    S.joy.y = 0;
+    S.joy.active = false;
+    S.joy.id = null;
   }
 
   function setContinueMode(mode, label) {
