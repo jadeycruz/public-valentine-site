@@ -8193,9 +8193,16 @@ const HeartBlaster = (() => {
     btns.appendChild(grenadeBtn);
     btns.appendChild(shootBtn);
 
-    uiLayer.appendChild(joy);
-    uiLayer.appendChild(btns);
+    // Add the non-blocking layer (exit button lives here)
     wrap.appendChild(uiLayer);
+
+    // IMPORTANT: joystick + buttons must NOT be inside uiLayer,
+    // because uiLayer has pointer-events: none (it would block them).
+    joy.style.zIndex = "60";
+    btns.style.zIndex = "60";
+
+    wrap.appendChild(joy);
+    wrap.appendChild(btns);
 
     // --- joystick logic -> writes into S.joy (analog) + also sets keys as fallback ---
     const joyState = {
