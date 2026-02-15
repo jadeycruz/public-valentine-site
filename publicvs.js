@@ -2102,7 +2102,8 @@ const JigsawGame = (() => {
       dragging = false;
 
     let isDown = false;
-    let ghost = null;
+    let suppressNextClick = false;
+    let ghost = null;    
 
     const makeGhost = () => {
       ghost = pieceEl.cloneNode(true);
@@ -2178,6 +2179,7 @@ const JigsawGame = (() => {
 
       if (!moved) {
         // tap = rotate
+        suppressNextClick = true;    
         rotatePiece(pieceId, pieceEl);
         cleanup();
         return;
@@ -2263,7 +2265,15 @@ const JigsawGame = (() => {
       });
 
       // rotate 90° on click
-      piece.addEventListener("click", () => rotatePiece(id, piece));
+      piece.addEventListener("click", (e) => {
+        if (suppressNextClick) {
+          suppressNextClick = false;
+          e.preventDefault();
+          e.stopPropagation();
+          return; // ✅ ignore the click caused by the tap
+        }
+        rotatePiece(id, piece);
+      });
 
       // right click also rotates (and prevents menu)
       piece.addEventListener("contextmenu", (e) => {
