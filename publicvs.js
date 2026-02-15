@@ -2027,6 +2027,177 @@ const JigsawGame = (() => {
     `;
   }
 
+  // --- Mobile helpers (tap to rotate, drag to place) ---
+  function rotatePiece(id, pieceEl) {
+    const rotsNow = loadJSON(SESSION_KEYS.jigsawRot, defaultRot());
+    rotsNow[id] = (rotsNow[id] + 1) % 4;
+    saveJSON(SESSION_KEYS.jigsawRot, rotsNow);
+    pieceEl.style.setProperty("--rot", `${rotsNow[id] * 90}deg`);
+  }
+
+  function tryPlacePiece(pieceId, slotEl) {
+    if (!slotEl) return false;
+
+    const placed = loadJSON(SESSION_KEYS.jigsawPlaced, defaultPlaced());
+    const rots = loadJSON(SESSION_KEYS.jigsawRot, defaultRot());
+
+    // already placed?
+    if (placed[pieceId]) return false;
+
+    const slotId = Number(slotEl.dataset.slotId);
+
+    // snap rule: correct slot + correct rotation (0)
+    const rotOk = rots[pieceId] % 4 === 0;
+    const slotOk = slotId === pieceId;
+
+    if (!slotOk || !rotOk) {
+      spawnHearts(2);
+      return false;
+    }
+
+    // ✅ place it
+    placed[pieceId] = true;
+    saveJSON(SESSION_KEYS.jigsawPlaced, placed);
+
+    const src = loadJSON(SESSION_KEYS.jigsawPhoto, JIGSAW_PHOTO) || JIGSAW_PHOTO;
+
+    // remove from tray + render into slot
+    const pieceEl = el.jigsawTray.querySelector(
+      `.jigsaw-piece[data-piece-id="${pieceId}"]`,
+    );
+    if (pieceEl) pieceEl.remove();
+
+    const placedEl = document.createElement("div");
+    placedEl.className = "jigsaw-piece is-placed";
+    placedEl.setAttribute("style", getPieceBgStyle(src, pieceId));
+    placedEl.style.setProperty("--rot", "0deg");
+
+    slotEl.innerHTML = "";
+    slotEl.appendChild(placedEl);
+
+    spawnHearts(6);
+    setCounter(placed);
+
+    // win?
+    const done = placed.every(Boolean);
+    if (done) {
+      jigsawGameCompleted = true;
+      saveBool(SESSION_KEYS.jigsawDone, true);
+
+      el.jigsawContinueBtn.classList.remove("hidden");
+      startConfetti();
+      updateGamesContinue();
+    }
+
+    return true;
+  }
+
+  function enableMobileDrag(pieceEl, pieceId) {
+    // Stop page scroll while interacting with puzzle pieces
+    pieceEl.style.touchAction = "none";
+
+    let startX = 0,
+      startY = 0,
+      moved = false,
+      dragging = false;
+
+    let isDown = false;
+    let ghost = null;
+
+    const makeGhost = () => {
+      ghost = pieceEl.cloneNode(true);
+      ghost.classList.add("is-drag-ghost");
+      ghost.style.position = "fixed";
+      ghost.style.left = "0px";
+      ghost.style.top = "0px";
+      ghost.style.margin = "0";
+      ghost.style.zIndex = "9999";
+      ghost.style.pointerEvents = "none";
+      ghost.style.transform = "translate(-50%, -50%)";
+      document.body.appendChild(ghost);
+    };
+
+    const moveGhost = (cx, cy) => {
+      if (!ghost) return;
+      ghost.style.left = `${cx}px`;
+      ghost.style.top = `${cy}px`;
+    };
+
+    const cleanup = () => {
+      dragging = false;
+      if (ghost) ghost.remove();
+      ghost = null;
+      pieceEl.classList.remove("is-dragging");
+    };
+
+    pieceEl.addEventListener("pointerdown", (e) => {
+      // Only use this system for TOUCH/PEN so desktop mouse hover doesn't trigger.
+      if (e.pointerType === "mouse") return;
+
+      // only primary touch/left button
+      if (e.button != null && e.button !== 0) return;
+
+      isDown = true;
+
+      startX = e.clientX;
+      startY = e.clientY;
+      moved = false;
+      dragging = false;
+
+      pieceEl.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+
+    pieceEl.addEventListener("pointermove", (e) => {
+      if (!isDown) return;              // ✅ don’t react unless pressed
+      if (e.pointerType === "mouse") return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const dist2 = dx * dx + dy * dy;
+
+      // start dragging after small threshold so taps still rotate
+      if (!dragging && dist2 > 36) {
+        dragging = true;
+        moved = true;
+        makeGhost();
+        pieceEl.classList.add("is-dragging");
+      }
+
+      if (dragging) {
+        e.preventDefault();
+        moveGhost(e.clientX, e.clientY);
+      }
+    });
+
+    pieceEl.addEventListener("pointerup", (e) => {
+      if (e.pointerType === "mouse") return;
+
+      isDown = false;
+      e.preventDefault();
+
+      if (!moved) {
+        // tap = rotate
+        rotatePiece(pieceId, pieceEl);
+        cleanup();
+        return;
+      }
+
+      const under = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest?.(".jigsaw-slot");
+
+      if (under) tryPlacePiece(pieceId, under);
+      cleanup();
+    });
+
+    pieceEl.addEventListener("pointercancel", () => {
+      isDown = false;
+      cleanup();
+    });
+  }
+  
+
   function buildBoard() {
     el.jigsawBoard.innerHTML = "";
 
@@ -2045,65 +2216,14 @@ const JigsawGame = (() => {
       });
 
       slot.addEventListener("drop", (e) => {
-        e.preventDefault();
-        slot.classList.remove("is-over");
+      e.preventDefault();
+      slot.classList.remove("is-over");
 
-        const pieceId = Number(e.dataTransfer.getData("text/pieceId"));
-        if (!Number.isFinite(pieceId)) return;
+      const pieceId = Number(e.dataTransfer.getData("text/pieceId"));
+      if (!Number.isFinite(pieceId)) return;
 
-        const placed = loadJSON(SESSION_KEYS.jigsawPlaced, defaultPlaced());
-        const rots = loadJSON(SESSION_KEYS.jigsawRot, defaultRot());
-
-        // already placed?
-        if (placed[pieceId]) return;
-
-        const slotId = Number(slot.dataset.slotId);
-
-        // snap rule: correct slot + correct rotation (0)
-        const rotOk = rots[pieceId] % 4 === 0;
-        const slotOk = slotId === pieceId;
-
-        if (!slotOk || !rotOk) {
-          spawnHearts(2);
-          return;
-        }
-
-        // ✅ place it
-        placed[pieceId] = true;
-        saveJSON(SESSION_KEYS.jigsawPlaced, placed);
-
-        const src =
-          loadJSON(SESSION_KEYS.jigsawPhoto, JIGSAW_PHOTO) || JIGSAW_PHOTO;
-
-        // remove from tray + render into slot
-        const pieceEl = el.jigsawTray.querySelector(
-          `.jigsaw-piece[data-piece-id="${pieceId}"]`,
-        );
-        if (pieceEl) pieceEl.remove();
-
-        const placedEl = document.createElement("div");
-        placedEl.className = "jigsaw-piece is-placed";
-        placedEl.setAttribute("style", getPieceBgStyle(src, pieceId));
-        placedEl.style.setProperty("--rot", "0deg");
-
-        slot.innerHTML = "";
-        slot.appendChild(placedEl);
-
-        spawnHearts(6);
-        setCounter(placed);
-
-        // win?
-        const done = placed.every(Boolean);
-        if (done) {
-          jigsawGameCompleted = true;
-          saveBool(SESSION_KEYS.jigsawDone, true);
-
-          el.jigsawContinueBtn.classList.remove("hidden");
-          startConfetti();
-          updateGamesContinue();
-        }
-      });
-
+      tryPlacePiece(pieceId, slot);
+    });
       el.jigsawBoard.appendChild(slot);
     }
   }
@@ -2135,18 +2255,15 @@ const JigsawGame = (() => {
       piece.setAttribute("style", getPieceBgStyle(src, id));
       piece.style.setProperty("--rot", `${rots[id] * 90}deg`);
 
+      enableMobileDrag(piece, id);
+
       piece.addEventListener("dragstart", (e) => {
         e.dataTransfer.setData("text/pieceId", String(id));
         e.dataTransfer.effectAllowed = "move";
       });
 
       // rotate 90° on click
-      piece.addEventListener("click", () => {
-        const rotsNow = loadJSON(SESSION_KEYS.jigsawRot, defaultRot());
-        rotsNow[id] = (rotsNow[id] + 1) % 4;
-        saveJSON(SESSION_KEYS.jigsawRot, rotsNow);
-        piece.style.setProperty("--rot", `${rotsNow[id] * 90}deg`);
-      });
+      piece.addEventListener("click", () => rotatePiece(id, piece));
 
       // right click also rotates (and prevents menu)
       piece.addEventListener("contextmenu", (e) => {
@@ -2236,7 +2353,6 @@ const JigsawGame = (() => {
     init();
     updateGamesContinue();
   }
-
   return { open };
 })();
 
