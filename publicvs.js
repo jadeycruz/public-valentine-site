@@ -4252,6 +4252,27 @@ const HeartBlaster = (() => {
     });
   }
 
+  function hbHandleFullscreenChange() {
+    const isFS = !!document.fullscreenElement;
+
+    // If fullscreen was active and now exited → fully close HeartBlaster
+    if (_hbFSActive && !isFS) {
+      _hbFSActive = false;
+
+      try {
+        popIn(); // close pop modal if open
+      } catch {}
+
+      hbApplyMobileFullscreenStyles(false);
+
+      // Optional: fully stop game when exiting fullscreen
+      stop();
+    }
+  }
+
+  // Attach once
+  document.addEventListener("fullscreenchange", hbHandleFullscreenChange);
+
 
   function popOut() {
     if (isPoppedOut) return;
