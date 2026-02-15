@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Will you be my Valentine?</title>
+    <link rel="stylesheet" href="publicvs.css" />
+  </head>
+
+  <body>
+    <!-- Floating hearts layer -->
+    <div id="hearts-layer" aria-hidden="true"></div>
+
+    <main class="card" role="main">
+      <p class="to-line" id="toLine"></p>
+
+      <h1 id="mainMessage">Will you be my Valentine? 💖</h1>
+      <p class="sub" id="subMessage">I promise to not be annoying.</p>
+
+      <div class="btn-row" id="btnRow">
+        <button id="yesBtn" class="btn yes">YES</button>
+        <button id="noBtn" class="btn no">No</button>
+      </div>
+
+      <p class="hint" id="hint">Tip: Don't you dare press NO</p>
+
+      <section class="panel planner hidden" id="planner">
+        <h2>Yay! Let’s plan our date 💘</h2>
+
+        <!-- JS will render activity picker OR calendar here -->
+        <div id="plannerView"></div>
+
+        <div class="planner-actions">
+          <button id="cancelPlanBtn" class="btn secondary">◀ Back</button>
+          <button id="donePlanningBtn" class="btn yes">Games ▶</button>
+        </div>
+
+        <p class="tiny" id="planHint">Tip: you have to pick something to move forward to GAMES! 🥺</p>
+
+        <div class="planner-export">
+          <button id="exportTxtBtn" class="btn secondary">
+            Export plans as text 💌
+          </button>
+        </div>
+      </section>
+
+      <section class="panel games hidden" id="gamesMenu">
+        <h2>Pick a game 🎮</h2>
+        <p class="tiny">Please play them all I worked hard on em. Ty!</p>
+
+        <div class="games-list">
+          <button class="btn yes" id="photoGameBtn">Unlock Photos 📸💞</button>
+          <button class="btn yes" id="scratchGameBtn">Scratch to Reveal ✨🪙</button>
+          <button class="btn yes" id="memoryGameBtn">Memory Match 🧠💘</button>
+          <button class="btn yes" id="loveQuizBtn">Love Quiz 💡📝</button>
+          <button class="btn yes" id="jigsawGameBtn">Piece by Piece 🧩🔄</button>
+          <button class="btn yes" id="popHeartsBtn">Pop the Hearts 📌🫧</button>
+          <button class="btn yes" id="loveDashBtn">Love Dash 🏃‍♀️💨</button>
+          <button class="btn yes" id="heartBlasterBtn">Heart Blaster 💥🔫</button>
+        </div>
+
+        <div class="games-actions">
+          <button class="btn secondary" id="gamesBackBtn">◀ Back</button>
+          <button class="btn yes" id="gamesContinueBtn">Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel carousel hidden" id="carousel">
+        <h2 class="carousel-title">Unlock Photos 📸💞</h2>
+        <p class="tiny" id="gamePrompt">Find the hidden heart to reveal!</p>
+
+        <div class="game-area" id="gameArea">
+          <img id="carouselImg" class="game-photo hidden" alt="Cute photo" />
+
+          <div class="game-overlay" id="gameOverlay">
+            <div class="lock-text" id="lockText">🔒 Locked</div>
+            <div class="hint-text" id="hintText">Click around to find the heart 💘</div>
+          </div>
+
+          <div class="ping hidden" id="ping"></div>
+
+          <div class="carousel-badge" id="carouselBadge">0 / 3</div>
+        </div>
+
+        <p class="tiny" id="gameStatus">0 / 3 photos unlocked</p>
+
+        <div class="carousel-actions">
+          <!-- Photo navigation row -->
+          <div class="carousel-nav">
+            <button class="btn secondary hidden" id="prevPhotoBtn">◁ Previous photo</button>
+            <button class="btn yes hidden" id="nextPhotoBtn">Next photo ▷</button>
+          </div>
+
+          <!-- Game navigation row -->
+          <div class="carousel-game-actions">
+            <button class="btn secondary" id="backBtn">◀ Back</button>
+            <button class="btn yes hidden" id="continueBtn">Continue ▶</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel scratch hidden" id="scratchGame">
+        <h2>Scratch to Reveal ✨🪙</h2>
+        <p class="tiny">Scratch the grey layer to reveal!</p>
+
+        <div class="scratch-area">
+          <img id="scratchImg" class="scratch-photo" src="" alt="Scratch photo"/>
+          <canvas id="scratchCanvas" width="300" height="300"></canvas>
+        </div>
+
+        <div class="scratch-actions">
+          <button class="btn secondary" id="scratchBackBtn">◀ Back</button>
+          <button class="btn yes hidden" id="scratchContinueBtn">Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel memory hidden" id="memoryGame">
+        <h2>Memory Match 🧠💘</h2>
+        <p class="tiny" id="memoryStatus">Match all the pairs to continue!</p>
+
+        <div class="memory-grid" id="memoryGrid" aria-label="Memory grid"></div>
+
+        <div class="memory-actions">
+          <button class="btn secondary" id="memoryBackBtn">◀ Back</button>
+          <button class="btn yes hidden" id="memoryContinueBtn"> Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel quiz hidden" id="loveQuiz">
+        <h2>Love Quiz 💘📝</h2>
+        <p class="tiny" id="loveQuizProgress">Question 1 / 10 (General Knowledge Quiz for public use)</p>
+
+        <div class="quiz-box">
+          <p class="quiz-question" id="loveQuizQuestion">Question text…</p>
+
+          <div class="quiz-options" id="loveQuizOptions" aria-label="Quiz options">
+            <!-- JS injects 4 option buttons -->
+          </div>
+        </div>
+
+        <div class="quiz-actions">
+          <button class="btn secondary" id="loveQuizBackToGamesBtn">◀ Back</button>
+          <button class="btn yes hidden" id="loveQuizNextBtn">Next Question ▷</button>
+        </div>
+      </section>
+
+      <section class="panel quiz hidden" id="loveQuizScore">
+        <h2>Love Quiz Results 💯</h2>
+        <p class="tiny" id="loveQuizScoreLine">Score here…</p>
+        <p class="tiny" id="loveQuizScoreDetails"></p>
+
+        <div class="quiz-actions">
+          <button class="btn secondary" id="loveQuizScoreBackBtn">◀ Back</button>
+          <button class="btn yes hidden" id="loveQuizContinueBtn">Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel jigsaw hidden" id="jigsawGame">
+        <h2>Piece by Piece 🧩💘</h2>
+        <p class="tiny" id="jigsawHint">
+          Drag pieces onto the board. Click a piece to rotate 90°.
+        </p>
+
+        <div class="jigsaw-top">
+          <div class="jigsaw-counter" id="jigsawCounter">Placed 0 / 12</div>
+        </div>
+
+        <div class="jigsaw-board" id="jigsawBoard" aria-label="Jigsaw board"></div>
+
+        <h3 class="jigsaw-subtitle">Pieces tray</h3>
+        <div class="jigsaw-tray" id="jigsawTray" aria-label="Jigsaw tray"></div>
+
+        <div class="jigsaw-actions">
+          <button class="btn secondary" id="jigsawBackBtn">◀ Back</button>
+          <button class="btn yes hidden" id="jigsawContinueBtn">Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel pop hidden" id="popHeartsGame">
+        <h2>Pop the Hearts 📌🫧</h2>
+        <p class="tiny" id="popHeartsStatus">Pop all the hearts!</p>
+
+        <div class="pop-arena" id="popArena" aria-label="Pop hearts arena"></div>
+
+        <!-- message modal -->
+        <div class="pop-modal hidden" id="popModal" role="dialog" aria-modal="true">
+          <div class="pop-modal-card">
+            <img id="popModalImg" alt="Cute photo" />
+            <p class="pop-modal-msg" id="popModalMsg"></p>
+            <button class="btn yes" id="popModalCloseBtn" type="button">OK 💗</button>
+          </div>
+        </div>
+
+        <div class="pop-actions">
+          <button class="btn secondary" id="popBackBtn">◀ Back</button>
+          <button class="btn yes hidden" id="popContinueBtn">Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel dash hidden" id="loveDashGame">
+        <h2>Love Dash 🏃‍♀️💨</h2>
+        <p class="tiny" id="loveDashStatus">Click / Space to jump. Dodge the obstacles!</p>
+
+        <div class="dash-wrap">
+          <!-- background slideshow layer -->
+          <div id="loveDashBg"></div>
+
+          <canvas id="loveDashCanvas" width="420" height="520"></canvas>
+
+          <!-- Score HUD overlay -->
+          <div class="dash-hud">
+            <div>Score: <span id="loveDashScore">0</span></div>
+            <div>Best: <span id="loveDashBest">0</span></div>
+          </div>
+
+          <!-- Game over overlay -->
+          <div class="dash-overlay hidden" id="loveDashOverlay">
+            <div class="dash-card">
+              <div class="dash-title" id="loveDashOverTitle">Game Over 💔</div>
+              <div class="dash-sub" id="loveDashOverScore">Score: 0</div>
+              <div class="dash-sub tiny" id="loveDashOverMsg">Press Replay to try again!</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-actions">
+          <button class="btn secondary" id="loveDashBackBtn">◀ Back</button>
+          <button class="btn secondary" id="loveDashReplayBtn">↻ Replay</button>
+          <button class="btn yes hidden" id="loveDashContinueBtn">Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel blaster hidden" id="heartBlasterGame">
+        <h2>Heart Blaster 💥🔫</h2>
+        <p class="tiny" id="heartBlasterStatus">
+          Click the game to lock your mouse & aim • Click to shoot • Survive 3 waves!
+        </p>
+
+        <div class="blaster-wrap" id="hbArenaWrap">
+          <canvas id="heartBlasterCanvas" width="420" height="520"></canvas>
+
+          <!-- HUD (bottom-right stack) -->
+          <div class="blaster-hud" aria-label="Heart Blaster HUD">
+            <img id="hbOpFace" class="hb-opface" alt="Operator" />
+
+            <div class="hb-hudBlock">
+              <div class="hb-hudLine" id="hbWave">WAVE 1</div>
+
+              <div class="hb-hudRow">
+                <span class="hb-hudLabel">HP</span>
+                <span id="hbHp">100</span>
+              </div>
+
+              <div class="hb-hudRow">
+                <span class="hb-hudLabel">AMMO</span>
+                <span id="hbAmmo">15</span>
+              </div>
+
+              <!-- keep kills element for existing JS (hidden via CSS) -->
+              <div class="hb-hudRow hb-hudKills">
+                <span class="hb-hudLabel">KILLS</span>
+                <span id="hbKills">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Overlay (instructions / game over / win screen) -->
+          <div class="blaster-overlay" id="hbOverlay">
+            <div class="blaster-card">
+              <div class="blaster-title" id="hbOverlayTitle">Heart Blaster 🔫</div>
+              <div class="blaster-sub tiny" id="hbOverlayMsg">
+                Click to start • Your cursor will disappear (Pointer Lock)
+                <br />Mobile: drag to aim + tap to shoot
+              </div>
+              <div class="blaster-sub" id="hbOverlayScore"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blaster-actions">
+          <button class="btn secondary" id="heartBlasterBackBtn">◀ Back</button>
+          <button class="btn secondary" id="heartBlasterRestartBtn">↻ Restart</button>
+          <button class="btn secondary" id="heartBlasterPopBtn">⇱ Pop out</button>
+          <button class="btn yes hidden" id="heartBlasterContinueBtn">Continue ▶</button>
+        </div>
+      </section>
+
+      <section class="panel result hidden" id="result">
+        <h2 id="resultTitle">YAYYYYY!!! 💘 Thanks for playing 🥺.</h2>
+        <p id="resultText">I love you so much! Heehee!</p>
+
+        <div class="games-actions">
+          <button id="replayBackBtn" class="btn secondary">◀ Back</button>
+          <button id="restartBtn" class="btn secondary">↻ Replay</button>
+        </div>
+      </section>
+
+      <div id="quizToast" class="quiz-toast hidden" role="status" aria-live="polite"></div>
+      
+      <audio id="bgMusic" preload="auto" loop>
+        <source src="music.mp3" type="audio/mpeg" />
+      </audio>
+
+      <audio id="bgMusicAfter" preload="auto" loop>
+        <source src="music2.mp3" type="audio/mpeg" />
+      </audio>
+
+    </main>
+
+    <!-- Heart Blaster Pop-out Modal -->
+    <div class="hb-modal hidden" id="hbModal">
+      <div class="hb-modal-inner">
+        <div class="hb-modal-top">
+          <div class="hb-modal-title">Heart Blaster Arena 🔫</div>
+          
+          <div class="hb-modal-actions">
+            <button class="btn secondary" id="hbModalBackBtn">◀ Back</button>
+            <button class="btn secondary" id="hbModalRestartBtn">↻ Restart</button>
+            <button class="btn yes hidden" id="hbModalContinueBtn">Continue ▶</button>
+            <button class="btn secondary" id="hbModalCloseBtn">✕ Close</button>
+          </div>
+        </div>
+
+        <!-- canvas gets moved here -->
+        <div class="hb-modal-stage" id="hbModalStage"></div>
+      </div>
+    </div>
+
+    <!-- Confetti canvas -->
+    <canvas id="confetti" aria-hidden="true"></canvas>
+
+    <script src="publicvs.js?v=20260214a"></script>
+  </body>
+</html>

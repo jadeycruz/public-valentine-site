@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Heart Blaster Map Designer v1</title>
+  <style>
+    :root{
+      --bg:#0b0b10;
+      --panel:#141421;
+      --panel2:#10101a;
+      --text:#f2f2ff;
+      --muted:#b7b7d1;
+      --wall:#ffffff;
+      --floor:#26263a;
+      --gridline:rgba(255,255,255,.12);
+      --accent:#ff5a8c;
+      --ok:#3cffb3;
+      --warn:#ffd35a;
+      --err:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% 10%, #181834 0%, var(--bg) 55%) fixed;
+      color:var(--text);
+    }
+    header{
+      padding:16px 18px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(20,20,33,.92) 0%, rgba(11,11,16,.6) 100%);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+    header h1{
+      margin:0;
+      font-size:16px;
+      font-weight:800;
+      letter-spacing:.3px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    header h1 .pill{
+      font-size:12px;
+      padding:4px 10px;
+      border-radius:999px;
+      background: rgba(255,90,140,.14);
+      border:1px solid rgba(255,90,140,.35);
+      color:#ffd3df;
+      font-weight:700;
+    }
+    main{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:14px;
+      padding:14px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    @media (max-width: 980px){
+      main{grid-template-columns:1fr}
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(20,20,33,.92) 0%, rgba(16,16,26,.92) 100%);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      box-shadow: 0 12px 35px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    .card .title{
+      padding:12px 14px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      color: var(--muted);
+      font-weight:700;
+      font-size:12px;
+      letter-spacing:.3px;
+      text-transform: uppercase;
+      background: rgba(0,0,0,.14);
+    }
+    .card .content{ padding:12px 14px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .row > *{ flex: 0 0 auto; }
+    label{
+      font-size:12px;
+      color: var(--muted);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    input[type="number"], input[type="text"], textarea, select{
+      background: rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.14);
+      color: var(--text);
+      border-radius: 10px;
+      padding:8px 10px;
+      outline:none;
+    }
+    input[type="number"]{ width:110px; }
+    input[type="text"]{ width: 170px; }
+    textarea{
+      width:100%;
+      min-height:170px;
+      resize:vertical;
+      line-height: 1.3;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      white-space: pre;
+    }
+    button{
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      color: var(--text);
+      border-radius: 12px;
+      padding:9px 12px;
+      font-weight:800;
+      cursor:pointer;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{ background: rgba(255,255,255,.12); }
+    button:active{ transform: translateY(1px); }
+    button.primary{
+      background: rgba(255,90,140,.18);
+      border-color: rgba(255,90,140,.40);
+    }
+    button.primary:hover{ background: rgba(255,90,140,.25); }
+    button.ok{
+      background: rgba(60,255,179,.14);
+      border-color: rgba(60,255,179,.35);
+    }
+    button.warn{
+      background: rgba(255,211,90,.14);
+      border-color: rgba(255,211,90,.35);
+    }
+    button.danger{
+      background: rgba(255,107,107,.14);
+      border-color: rgba(255,107,107,.35);
+    }
+    .small{ font-size:12px; padding:7px 10px; border-radius:10px;}
+    .muted{ color: var(--muted); font-size:12px; line-height:1.35; }
+    .status{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      font-size:12px;
+      color: var(--muted);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .status b{ color: var(--text); }
+    .badge{
+      font-weight:900;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      font-size:12px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .badge .dot{
+      width:8px;height:8px;border-radius:999px;background:var(--muted);display:inline-block;
+    }
+
+    /* Grid */
+    .gridWrap{
+      padding:12px 12px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .canvasArea{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:10px;
+    }
+    #grid{
+      display:grid;
+      gap:0;
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
+      touch-action: none;
+      user-select:none;
+      background: rgba(0,0,0,.15);
+    }
+    .cell{
+      width: 22px;
+      height: 22px;
+      border-right:1px solid var(--gridline);
+      border-bottom:1px solid var(--gridline);
+      background: var(--floor);
+      position:relative;
+    }
+    .cell.wall{ background: var(--wall); }
+    .cell.spawn::after{
+      content:"♥";
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:14px;
+      color: var(--accent);
+      text-shadow: 0 2px 8px rgba(255,90,140,.6);
+      pointer-events:none;
+    }
+    .legend{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .legendItem{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .swatch{
+      width:14px;height:14px;border-radius:4px;border:1px solid rgba(255,255,255,.18);
+    }
+    .swatch.wall{ background: var(--wall); }
+    .swatch.floor{ background: var(--floor); }
+    .swatch.spawn{ background: rgba(255,90,140,.18); position:relative; }
+    .swatch.spawn::after{
+      content:"♥";
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:10px;
+      color: var(--accent);
+    }
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      padding:10px 12px;
+      border:1px dashed rgba(255,255,255,.14);
+      border-radius:12px;
+      background: rgba(0,0,0,.14);
+    }
+    kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:7px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Heart Blaster Map Designer <span class="pill">v1</span></h1>
+  </header>
+
+  <main>
+    <!-- Left panel -->
+    <section class="card">
+      <div class="title">Controls</div>
+      <div class="content">
+        <div class="row">
+          <label>
+            Width
+            <input id="w" type="number" min="3" max="64" step="1" value="15" />
+          </label>
+          <label>
+            Height
+            <input id="h" type="number" min="3" max="64" step="1" value="15" />
+          </label>
+          <label>
+            Cell px
+            <input id="cellPx" type="number" min="10" max="40" step="1" value="22" />
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="primary" id="newMapBtn">New map (border walls)</button>
+          <button class="warn" id="clearBtn">Clear (all 0)</button>
+          <button class="danger" id="fillBtn">Fill (all 1)</button>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <label>
+            Paint mode
+            <select id="mode">
+              <option value="toggle">Toggle (click flips)</option>
+              <option value="wall">Paint walls (1)</option>
+              <option value="floor">Paint floors (0)</option>
+            </select>
+          </label>
+          <label>
+            Drag painting
+            <select id="dragMode">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="ok" id="setSpawnBtn">Set Spawn (next click)</button>
+          <button id="clearSpawnBtn">Clear Spawn</button>
+        </div>
+
+        <div class="hint" style="margin-top:12px">
+          Tips:
+          <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+            <div>• Click/drag to paint.</div>
+            <div>• Spawn marker is just for you; export stays 0/1.</div>
+            <div>• Keyboard: <kbd>1</kbd> walls, <kbd>0</kbd> floors, <kbd>T</kbd> toggle, <kbd>S</kbd> spawn, <kbd>C</kbd> copy.</div>
+          </div>
+        </div>
+
+        <div class="status" id="status">
+          <span><b id="dimsLabel">15×15</b> • walls: <b id="wallCount">0</b></span>
+          <span class="badge"><span class="dot" id="statusDot"></span><span id="statusMsg">Ready</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: grid + export -->
+    <section class="card">
+      <div class="title">Map</div>
+      <div class="gridWrap">
+        <div class="legend">
+          <div class="legendItem"><span class="swatch wall"></span> Wall (1)</div>
+          <div class="legendItem"><span class="swatch floor"></span> Floor (0)</div>
+          <div class="legendItem"><span class="swatch spawn"></span> Spawn (marker)</div>
+        </div>
+
+        <div class="canvasArea">
+          <div id="grid" aria-label="Map grid"></div>
+        </div>
+
+        <div class="row">
+          <button class="primary" id="exportBtn">Export →</button>
+          <button id="importBtn">Import ←</button>
+          <button class="ok" id="copyBtn">Copy export</button>
+          <button id="downloadBtn">Download .txt</button>
+        </div>
+
+        <label style="width:100%">
+          Export / Import (paste your array lines or raw lines)
+          <textarea id="io" spellcheck="false" placeholder='Example:
+[
+  "11111",
+  "10001",
+  "11111",
+]
+or just lines:
+11111
+10001
+11111'></textarea>
+        </label>
+
+        <div class="muted">
+          Export format matches your engine strings: each row is a quoted string of 0/1.
+          Import accepts: quoted strings, raw lines, or JSON-like arrays.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      /** ===== State ===== */
+      let W = 15, H = 15;
+      let grid = [];
+      let spawns = new Set(); // stores "x,z"
+      let pendingSpawn = false;
+
+      /** ===== DOM ===== */
+      const el = {
+        w: document.getElementById('w'),
+        h: document.getElementById('h'),
+        cellPx: document.getElementById('cellPx'),
+        mode: document.getElementById('mode'),
+        dragMode: document.getElementById('dragMode'),
+        grid: document.getElementById('grid'),
+        io: document.getElementById('io'),
+        dimsLabel: document.getElementById('dimsLabel'),
+        wallCount: document.getElementById('wallCount'),
+        exportBtn: document.getElementById('exportBtn'),
+        importBtn: document.getElementById('importBtn'),
+        copyBtn: document.getElementById('copyBtn'),
+        downloadBtn: document.getElementById('downloadBtn'),
+        newMapBtn: document.getElementById('newMapBtn'),
+        clearBtn: document.getElementById('clearBtn'),
+        fillBtn: document.getElementById('fillBtn'),
+        setSpawnBtn: document.getElementById('setSpawnBtn'),
+        clearSpawnBtn: document.getElementById('clearSpawnBtn'),
+        statusMsg: document.getElementById('statusMsg'),
+        statusDot: document.getElementById('statusDot'),
+      };
+
+      /** ===== Helpers ===== */
+      const clampInt = (v, a, b) => Math.max(a, Math.min(b, v|0));
+      const nowMsg = (msg, type='neutral') => {
+        el.statusMsg.textContent = msg;
+        const dot = el.statusDot;
+        dot.style.background =
+          type === 'ok' ? 'var(--ok)' :
+          type === 'warn' ? 'var(--warn)' :
+          type === 'err' ? 'var(--err)' : 'var(--muted)';
+      };
+      const keyOf = (x, z) => `${x},${z}`;
+      const hasSpawn = (x, z) => spawns.has(keyOf(x, z));
+      const addSpawn = (x, z) => spawns.add(keyOf(x, z));
+      const removeSpawn = (x, z) => spawns.delete(keyOf(x, z));
+      const clearSpawns = () => spawns.clear();
+      const spawnCount = () => spawns.size;
+
+      function makeEmpty(w, h, val=0){
+        const out = new Array(h);
+        for (let z=0; z<h; z++){
+          out[z] = new Array(w).fill(val);
+        }
+        return out;
+      }
+
+      function applyBorderWalls(){
+        for (let z=0; z<H; z++){
+          for (let x=0; x<W; x++){
+            const isBorder = (z===0 || x===0 || z===H-1 || x===W-1);
+            if (isBorder) grid[z][x] = 1;
+          }
+        }
+      }
+
+      function countWalls(){
+        let n=0;
+        for (let z=0; z<H; z++){
+          for (let x=0; x<W; x++){
+            if (grid[z][x] === 1) n++;
+          }
+        }
+        return n;
+      }
+
+      function exportStrings(){
+        const lines = [];
+        for (let z=0; z<H; z++){
+          let s = "";
+          for (let x=0; x<W; x++){
+            if (hasSpawn(x, z)) s += "S";
+            else s += grid[z][x] ? "1" : "0";
+          }
+          lines.push(s);
+        }
+        return lines;
+      }
+
+      function exportToText(){
+        const rows = exportStrings().map(s => `  "${s}",`);
+        return `[\n${rows.join("\n")}\n],`;
+      }
+
+      function parseImport(text){
+        const raw = (text || "").trim();
+        if (!raw) throw new Error("Nothing to import.");
+
+        // Extract any 0/1 lines from:
+        // - quoted strings "1010"
+        // - raw lines 1010
+        // - JSON-like arrays
+        const matches = [];
+        const quoted = raw.match(/"([01S]+)"/g);
+        if (quoted && quoted.length){
+          for (const q of quoted){
+            const m = q.match(/"([01]+)"/);
+            if (m && m[1]) matches.push(m[1]);
+          }
+        } else {
+          // fallback: line-based
+          const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          for (const line of lines){
+            const m = line.match(/^[01S]+$/);
+            if (m) matches.push(line);
+          }
+        }
+
+        if (!matches.length){
+          throw new Error('Could not find any "0101" rows. Paste quoted strings or raw 0/1 lines.');
+        }
+
+        const h = matches.length;
+        const w = matches[0].length;
+        for (const s of matches){
+          if (s.length !== w) throw new Error("All rows must have the same length.");
+        }
+
+        const g = makeEmpty(w, h, 0);
+        for (let z=0; z<h; z++){
+          const s = matches[z];
+          for (let x=0; x<w; x++){
+            const ch = s[x];
+            g[z][x] = (ch === "1") ? 1 : 0;   // S counts as floor
+          }
+        }
+
+        return { w, h, g, rows: matches };
+      }
+
+      /** ===== Render ===== */
+      function rebuildGridDOM(){
+        el.grid.innerHTML = "";
+        el.grid.style.gridTemplateColumns = `repeat(${W}, ${el.cellPx.value|0}px)`;
+        el.grid.style.gridTemplateRows = `repeat(${H}, ${el.cellPx.value|0}px)`;
+
+        const frag = document.createDocumentFragment();
+        for (let z=0; z<H; z++){
+          for (let x=0; x<W; x++){
+            const d = document.createElement("div");
+            d.className = "cell";
+            d.dataset.x = x;
+            d.dataset.z = z;
+            frag.appendChild(d);
+          }
+        }
+        el.grid.appendChild(frag);
+        syncGridDOM();
+      }
+
+      function syncGridDOM(){
+        // Update classes based on grid state + spawn marker
+        const cells = el.grid.children;
+        let i=0;
+        for (let z=0; z<H; z++){
+          for (let x=0; x<W; x++){
+            const c = cells[i++];
+            const isWall = grid[z][x] === 1;
+            c.classList.toggle("wall", isWall);
+            c.classList.toggle("spawn", hasSpawn(x, z));
+          }
+        }
+        el.dimsLabel.textContent = `${W}×${H}`;
+        el.wallCount.textContent = String(countWalls());
+      }
+
+      /** ===== Painting ===== */
+      function setCell(x, z, v){
+        if (x<0 || z<0 || x>=W || z>=H) return;
+        grid[z][x] = v ? 1 : 0;
+      }
+
+      function toggleCell(x, z){
+        if (x<0 || z<0 || x>=W || z>=H) return;
+        grid[z][x] = grid[z][x] ? 0 : 1;
+      }
+
+      function applyPaint(x, z){
+        if (pendingSpawn){
+          // prevent spawn on wall
+          if (grid[z][x] === 1){
+            nowMsg("Spawn cannot be on a wall (paint it to 0 first).", "warn");
+            return;
+          }
+
+          // toggle spawn at this tile
+          if (hasSpawn(x, z)) {
+            removeSpawn(x, z);
+            nowMsg(`Spawn removed at (${x},${z}). Total spawns: ${spawnCount()}`, "warn");
+          } else {
+            addSpawn(x, z);
+            nowMsg(`Spawn added at (${x},${z}). Total spawns: ${spawnCount()}`, "ok");
+          }
+
+          // keep pendingSpawn ON so you can place multiple without re-clicking the button
+          syncGridDOM();
+          return;
+        }
+
+        const mode = el.mode.value;
+        if (mode === "toggle") toggleCell(x,z);
+        else if (mode === "wall") setCell(x,z,1);
+        else if (mode === "floor") setCell(x,z,0);
+
+        // If we painted a wall onto a spawn, remove that spawn
+        if (grid[z][x] === 1 && hasSpawn(x, z)){
+          removeSpawn(x, z);
+          nowMsg(`Spawn removed (tile became a wall). Total spawns: ${spawnCount()}`, "warn");
+        }
+        syncGridDOM();
+      }
+
+      /** ===== Events ===== */
+      let isDown = false;
+      let lastKey = "";
+
+      function cellFromEvent(e){
+        const t = e.target;
+        if (!t || !t.classList.contains("cell")) return null;
+        return { x: t.dataset.x|0, z: t.dataset.z|0 };
+      }
+
+      el.grid.addEventListener("pointerdown", (e) => {
+        const p = cellFromEvent(e);
+        if (!p) return;
+        isDown = true;
+        el.grid.setPointerCapture(e.pointerId);
+        applyPaint(p.x, p.z);
+      });
+
+      el.grid.addEventListener("pointermove", (e) => {
+        if (!isDown) return;
+        if (el.dragMode.value !== "on") return;
+
+        const p = cellFromEvent(e);
+        if (!p) return;
+
+        const key = `${p.x},${p.z}`;
+        if (key === lastKey) return;
+        lastKey = key;
+        applyPaint(p.x, p.z);
+      });
+
+      el.grid.addEventListener("pointerup", () => {
+        isDown = false;
+        lastKey = "";
+      });
+      el.grid.addEventListener("pointercancel", () => {
+        isDown = false;
+        lastKey = "";
+      });
+
+      function readDims(){
+        const w = clampInt(+el.w.value, 3, 64);
+        const h = clampInt(+el.h.value, 3, 64);
+        el.w.value = w;
+        el.h.value = h;
+        return {w,h};
+      }
+
+      function newMap(border=true){
+        const {w,h} = readDims();
+        W = w; H = h;
+        grid = makeEmpty(W,H,0);
+        clearSpawns();
+        if (border) applyBorderWalls();
+        rebuildGridDOM();
+        nowMsg(border ? "New map created (border walls)." : "New map created.", "ok");
+      }
+
+      el.newMapBtn.addEventListener("click", () => newMap(true));
+
+      el.clearBtn.addEventListener("click", () => {
+        const {w,h} = readDims();
+        W=w; H=h;
+        grid = makeEmpty(W,H,0);
+        clearSpawns();
+        rebuildGridDOM();
+        nowMsg("Cleared to all floors (0).", "ok");
+      });
+
+      el.fillBtn.addEventListener("click", () => {
+        const {w,h} = readDims();
+        W=w; H=h;
+        grid = makeEmpty(W,H,1);
+        clearSpawns();
+        rebuildGridDOM();
+        nowMsg("Filled to all walls (1).", "warn");
+      });
+
+      el.exportBtn.addEventListener("click", () => {
+        el.io.value = exportToText();
+        nowMsg("Exported to text box.", "ok");
+      });
+
+      el.copyBtn.addEventListener("click", async () => {
+        try{
+          const txt = el.io.value.trim() ? el.io.value : exportToText();
+          await navigator.clipboard.writeText(txt);
+          nowMsg("Copied export to clipboard.", "ok");
+        } catch (err){
+          nowMsg("Copy failed (browser permission). Click Export then manually copy.", "warn");
+        }
+      });
+
+      el.downloadBtn.addEventListener("click", () => {
+        const txt = el.io.value.trim() ? el.io.value : exportToText();
+        const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `heartblaster_map_${W}x${H}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        nowMsg("Downloaded .txt.", "ok");
+      });
+
+      el.importBtn.addEventListener("click", () => {
+        try{
+          const {w,h,g,rows} = parseImport(el.io.value);
+          W = w; H = h;
+          el.w.value = W;
+          el.h.value = H;
+          grid = g;
+
+          // rebuild spawns from imported rows
+          clearSpawns();
+          for (let z = 0; z < H; z++){
+            const s = rows[z];
+            for (let x = 0; x < W; x++){
+              if (s[x] === "S") addSpawn(x, z);
+            }
+          }
+
+          rebuildGridDOM();
+          nowMsg(`Imported ${W}×${H} with ${spawnCount()} spawn(s).`, "ok");
+
+          nowMsg(`Imported ${W}×${H}.`, "ok");
+        } catch (err){
+          nowMsg(err.message || "Import failed.", "err");
+        }
+      });
+
+      el.setSpawnBtn.addEventListener("click", () => {
+        pendingSpawn = true;
+        nowMsg("Spawn mode ON: click FLOOR cells to add/remove spawns. Press button again to exit.", "warn");
+      });
+
+      el.setSpawnBtn.addEventListener("click", () => {
+        pendingSpawn = !pendingSpawn;
+        nowMsg(
+          pendingSpawn
+            ? "Spawn mode ON: click FLOOR cells to add/remove spawns. Press button again to exit."
+            : "Spawn mode OFF.",
+          pendingSpawn ? "warn" : "ok"
+        );
+      });
+
+      el.cellPx.addEventListener("change", () => {
+        const v = clampInt(+el.cellPx.value, 10, 40);
+        el.cellPx.value = v;
+        rebuildGridDOM();
+      });
+
+      el.w.addEventListener("change", () => newMap(true));
+      el.h.addEventListener("change", () => newMap(true));
+
+      // Keyboard shortcuts
+      window.addEventListener("keydown", (e) => {
+        if (e.target && (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT")) return;
+
+        const k = e.key.toLowerCase();
+        if (k === "1"){ el.mode.value = "wall"; nowMsg("Mode: Paint walls (1).", "ok"); }
+        else if (k === "0"){ el.mode.value = "floor"; nowMsg("Mode: Paint floors (0).", "ok"); }
+        else if (k === "t"){ el.mode.value = "toggle"; nowMsg("Mode: Toggle.", "ok"); }
+        else if (k === "s"){
+          pendingSpawn = !pendingSpawn;
+          nowMsg(
+            pendingSpawn
+              ? "Spawn mode ON: click FLOOR cells to add/remove spawns."
+              : "Spawn mode OFF.",
+            pendingSpawn ? "warn" : "ok"
+          );
+        }
+        else if (k === "c"){
+          // Copy export (auto export if empty)
+          el.io.value = el.io.value.trim() ? el.io.value : exportToText();
+          el.copyBtn.click();
+        }
+      });
+
+      /** ===== Init ===== */
+      function init(){
+        W = clampInt(+el.w.value, 3, 64);
+        H = clampInt(+el.h.value, 3, 64);
+        grid = makeEmpty(W,H,0);
+        applyBorderWalls();
+        rebuildGridDOM();
+        nowMsg("Ready", "neutral");
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

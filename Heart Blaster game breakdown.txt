@@ -1,0 +1,54 @@
+Heart Blaster Breakdown
+
+| Enemy Type        | Role    | Speed        | Health   | Range   | DPS |
+|---|---|---|---|---|---|
+| Corrupted Heart   | Grunt   |Medium        |Average    |Close   |Medium|
+| Toxic Rose        | Swarm   |Fast          |Weak       |Close   |Low   |
+| Broken Cupid      | Sniper  |Slow          |Weak       |Long    |High  |
+| Jealous Teddy     | Tank    |Slow          |Strong     |Close   |High  |
+| Heart Breaker     | Boss    |Slow (varied) |Very Strong (damageable by heartnade pickups)|Close to Mid|High|
+
+
+For all
+frame size: 64x64
+frame layout: horizontal strip
+
+Corrupted Heart
+Sheet Set
+- heart_idle.png (1 frame)
+- heart_run.png (2 frames) 
+- heart_hit.png (1 frame) 
+heart_dead.png (1 frame)
+
+Broken Cupid
+Sheet Set
+- cupid_idle.png (1 frame)
+- cupid_run.png (2 frames) 
+- cupid_hit.png (1 frame)
+- cupid_dead.png (1 frame)
+
+Toxic Rose
+Sheet Set
+- rose_idle.png (1 frame)
+- rose_run.png2 (2 frames)
+- rose_hit.png (1 frame)
+- rose_dead.png (1 frame)
+
+Jealous Teddy
+Sheet Set
+- teddy_idle.png (1 frame)
+- teddy_run.png2 (2 frames)
+- teddy_hit.png (1 frame)
+- teddy_dead.png (1 frame)
+
+Heart Breaker (Boss)
+Sheet Set (Phase 1)
+- boss_idle.png (1 frame)
+- boss_run.png2 (2 frames)
+- boss_hit.png (1 frame)
+
+Sheet Set (Phase 2)
+- boss_idle2.png (1 frame)
+- boss_run2.png2 (2 frames)
+- boss_hit2.png (1 frame)
+- boss_dead.png (1 frame)
