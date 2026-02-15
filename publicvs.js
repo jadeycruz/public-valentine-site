@@ -8139,6 +8139,17 @@ const HeartBlaster = (() => {
     joyBase.appendChild(joyKnob);
     joy.appendChild(joyBase);
 
+    // Make joystick actually receive drag input on mobile (prevents scroll/gesture stealing)
+    joy.style.touchAction = "none";
+    joy.style.webkitTouchCallout = "none";
+    joy.style.webkitUserSelect = "none";
+    joy.style.userSelect = "none";
+    joy.style.pointerEvents = "auto";
+
+    // (Optional but helpful)
+    joyBase.style.pointerEvents = "none";
+    joyKnob.style.pointerEvents = "none";
+
     // RIGHT: buttons
     const btns = document.createElement("div");
     btns.id = "hbBtns";
@@ -8249,8 +8260,10 @@ const HeartBlaster = (() => {
     }
 
     joy.addEventListener("pointerdown", (e) => {
-      if (!HB_IS_MOBILE) return;
+      // Don't rely on HB_IS_MOBILE (can be false on some devices); just ignore mouse
+  
       if (S.over) return;
+      if (e.pointerType === "mouse") return;
 
       // IMPORTANT: don't hard-reject pointerType — some mobile browsers can be weird here
       // (we only ignore mouse to avoid desktop pointer locking conflicts)
@@ -8298,6 +8311,52 @@ const HeartBlaster = (() => {
 
     joy.addEventListener("pointercancel", (e) => {
       if (e.pointerId !== joyState.id) return;
+      resetJoy();
+      e.preventDefault();
+    }, { passive: false });
+
+    // iOS fallback: Touch Events (keeps joystick working even if pointer events act weird)
+    joy.addEventListener("touchstart", (e) => {
+      if (S.over) return;
+      const t = e.changedTouches[0];
+      joyState.active = true;
+      joyState.id = "touch";
+      joyState.baseX = t.clientX;
+      joyState.baseY = t.clientY;
+      S.joy.active = true;
+      S.joy.id = "touch";
+      S.joy.x = 0;
+      S.joy.y = 0;
+      e.preventDefault();
+    }, { passive: false });
+
+    joy.addEventListener("touchmove", (e) => {
+      if (!joyState.active || joyState.id !== "touch") return;
+      const t = e.changedTouches[0];
+
+      let dx = t.clientX - joyState.baseX;
+      let dy = t.clientY - joyState.baseY;
+
+      const mag = Math.hypot(dx, dy) || 1;
+      if (mag > MAX) {
+        dx = (dx / mag) * MAX;
+        dy = (dy / mag) * MAX;
+      }
+
+      joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+      applyJoy(dx, dy);
+
+      e.preventDefault();
+    }, { passive: false });
+
+    joy.addEventListener("touchend", (e) => {
+      if (joyState.id !== "touch") return;
+      resetJoy();
+      e.preventDefault();
+    }, { passive: false });
+
+    joy.addEventListener("touchcancel", (e) => {
+      if (joyState.id !== "touch") return;
       resetJoy();
       e.preventDefault();
     }, { passive: false });
