@@ -1410,22 +1410,68 @@ const ScratchGame = (() => {
   function bindUIOnce() {
     const canvas = el.scratchCanvas;
 
-    // mouse controls
-    canvas.addEventListener("mousedown", () => (scratching = true));
-    canvas.addEventListener("mouseup", () => (scratching = false));
-    canvas.addEventListener("mouseleave", () => (scratching = false));
+    // pointer controls (works for mouse + touch + pen)
+    canvas.style.touchAction = "none"; // stops page scroll/zoom while scratching
 
-    canvas.addEventListener("mousemove", (e) => {
-      if (!scratching) return;
-
+    const scratchAtClient = (clientX, clientY) => {
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
 
       const ctx = canvas.getContext("2d");
       stampHeart(ctx, x, y, 32);
       checkScratchProgress(ctx);
-    });
+    };
+
+    if ("PointerEvent" in window) {
+      canvas.addEventListener("pointerdown", (e) => {
+        scratching = true;
+        canvas.setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+        scratchAtClient(e.clientX, e.clientY); // scratch immediately on touch-down
+      });
+
+      canvas.addEventListener("pointermove", (e) => {
+        if (!scratching) return;
+        e.preventDefault();
+        scratchAtClient(e.clientX, e.clientY);
+      });
+
+      const end = (e) => {
+        scratching = false;
+        e?.preventDefault?.();
+      };
+
+      canvas.addEventListener("pointerup", end);
+      canvas.addEventListener("pointercancel", end);
+      canvas.addEventListener("pointerleave", end);
+    } else {
+      // fallback for very old mobile browsers
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          scratching = true;
+          e.preventDefault();
+          const t = e.touches[0];
+          if (t) scratchAtClient(t.clientX, t.clientY);
+        },
+        { passive: false },
+      );
+
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!scratching) return;
+          e.preventDefault();
+          const t = e.touches[0];
+          if (t) scratchAtClient(t.clientX, t.clientY);
+        },
+        { passive: false },
+      );
+
+      canvas.addEventListener("touchend", () => (scratching = false));
+      canvas.addEventListener("touchcancel", () => (scratching = false));
+    }
 
     // navigation
     el.scratchBackBtn.addEventListener("click", () => {
