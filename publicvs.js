@@ -8186,7 +8186,7 @@ const HeartBlaster = (() => {
     uiLayer.appendChild(btns);
     wrap.appendChild(uiLayer);
 
-    // --- joystick logic -> writes into S.joy (true analog) ---
+    // --- joystick logic -> writes into S.joy (analog) + also sets keys as fallback ---
     const joyState = {
       id: null,
       active: false,
@@ -8195,25 +8195,42 @@ const HeartBlaster = (() => {
     };
 
     const MAX = 38;      // clamp radius in px
-    const DEAD = 6;      // small deadzone in px to prevent drift
+    const DEAD = 6;      // deadzone in px
 
-    // Ensure S.joy exists (updateMovement reads this)
+    // Ensure S.joy exists
     S.joy = S.joy || { x: 0, y: 0, active: false, id: null };
+
+    function setFallbackKeys(nx, ny) {
+      // nx, ny are -1..1
+      const t = 0.35; // threshold
+      S.keys.w = ny >  t;
+      S.keys.s = ny < -t;
+      S.keys.d = nx >  t;
+      S.keys.a = nx < -t;
+    }
 
     function applyJoy(dx, dy) {
       // deadzone
-      if (Math.hypot(dx, dy) < DEAD) {
+      const m = Math.hypot(dx, dy);
+      if (m < DEAD) {
         S.joy.x = 0;
         S.joy.y = 0;
+        setFallbackKeys(0, 0);
         return;
       }
 
-      // Normalize to [-1..1]
-      const nx = Math.max(-1, Math.min(1, dx / MAX));   // left(-) / right(+)
-      const ny = Math.max(-1, Math.min(1, -dy / MAX));  // up => +forward, down => -back
+      // normalize to -1..1
+      let nx = dx / MAX;        // left(-) right(+)
+      let ny = (-dy) / MAX;     // up => +forward, down => -back
+
+      nx = Math.max(-1, Math.min(1, nx));
+      ny = Math.max(-1, Math.min(1, ny));
 
       S.joy.x = nx;
       S.joy.y = ny;
+
+      // fallback digital keys (optional but makes it "never break")
+      setFallbackKeys(nx, ny);
     }
 
     function resetJoy() {
@@ -8225,80 +8242,65 @@ const HeartBlaster = (() => {
       S.joy.active = false;
       S.joy.id = null;
 
-      // Clear any stuck keys (since your old joystick used keys)
+      // clear fallback keys
       S.keys.w = S.keys.a = S.keys.s = S.keys.d = false;
 
       joyKnob.style.transform = "translate(0px, 0px)";
     }
 
-    joy.addEventListener(
-      "pointerdown",
-      (e) => {
-        if (!HB_IS_MOBILE) return;
-        if (e.pointerType !== "touch") return;
-        if (S.over) return;
+    joy.addEventListener("pointerdown", (e) => {
+      if (!HB_IS_MOBILE) return;
+      if (S.over) return;
 
-        joyState.active = true;
-        joyState.id = e.pointerId;
+      // IMPORTANT: don't hard-reject pointerType — some mobile browsers can be weird here
+      // (we only ignore mouse to avoid desktop pointer locking conflicts)
+      if (e.pointerType === "mouse") return;
 
-        // IMPORTANT: use where the finger starts as the center
-        // This prevents “always forward” when the base is near the bottom of the screen.
-        joyState.baseX = e.clientX;
-        joyState.baseY = e.clientY;
+      joyState.active = true;
+      joyState.id = e.pointerId;
 
-        S.joy.active = true;
-        S.joy.id = e.pointerId;
-        S.joy.x = 0;
-        S.joy.y = 0;
+      // Floating joystick center = where finger started
+      joyState.baseX = e.clientX;
+      joyState.baseY = e.clientY;
 
-        joy.setPointerCapture?.(e.pointerId);
-        e.preventDefault();
-      },
-      { passive: false },
-    );
+      S.joy.active = true;
+      S.joy.id = e.pointerId;
+      S.joy.x = 0;
+      S.joy.y = 0;
 
-    joy.addEventListener(
-      "pointermove",
-      (e) => {
-        if (!joyState.active || e.pointerId !== joyState.id) return;
+      joy.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    }, { passive: false });
 
-        let dx = e.clientX - joyState.baseX;
-        let dy = e.clientY - joyState.baseY;
+    joy.addEventListener("pointermove", (e) => {
+      if (!joyState.active || e.pointerId !== joyState.id) return;
 
-        const mag = Math.hypot(dx, dy) || 1;
-        if (mag > MAX) {
-          dx = (dx / mag) * MAX;
-          dy = (dy / mag) * MAX;
-        }
+      let dx = e.clientX - joyState.baseX;
+      let dy = e.clientY - joyState.baseY;
 
-        joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-        applyJoy(dx, dy);
+      const mag = Math.hypot(dx, dy) || 1;
+      if (mag > MAX) {
+        dx = (dx / mag) * MAX;
+        dy = (dy / mag) * MAX;
+      }
 
-        e.preventDefault();
-      },
-      { passive: false },
-    );
+      joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+      applyJoy(dx, dy);
 
-    joy.addEventListener(
-      "pointerup",
-      (e) => {
-        if (e.pointerId !== joyState.id) return;
-        resetJoy();
-        e.preventDefault();
-      },
-      { passive: false },
-    );
+      e.preventDefault();
+    }, { passive: false });
 
-    joy.addEventListener(
-      "pointercancel",
-      (e) => {
-        if (e.pointerId !== joyState.id) return;
-        resetJoy();
-        e.preventDefault();
-      },
-      { passive: false },
-    );
+    joy.addEventListener("pointerup", (e) => {
+      if (e.pointerId !== joyState.id) return;
+      resetJoy();
+      e.preventDefault();
+    }, { passive: false });
 
+    joy.addEventListener("pointercancel", (e) => {
+      if (e.pointerId !== joyState.id) return;
+      resetJoy();
+      e.preventDefault();
+    }, { passive: false });
 
 
     // --- SHOOT button (hold to fire) ---
