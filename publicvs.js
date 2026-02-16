@@ -175,6 +175,7 @@ const el = {
   gamesMenu: $("#gamesMenu"),
   carousel: $("#carousel"),
   result: $("#result"),
+  mainMenu: $("#mainMenu"),
 
   // planner
   plannerView: $("#plannerView"),
@@ -502,19 +503,48 @@ el.yesBtn.addEventListener("click", () => {
     yesOverlayEl = null;
   }
 
-  // Hide the buttons and open planner instead of final result
-  el.btnRow.classList.add("hidden");
-  el.hint.classList.add("hidden");
-  el.planner.classList.remove("hidden");
+  // Hide buttons
+    el.btnRow.classList.add("hidden");
+    el.hint.classList.add("hidden");
 
-  // Confetti + hearts party (next frame so it always paints)
-  requestAnimationFrame(() => startConfetti());
-  spawnHearts(18);
+    // Show MAIN MENU instead of planner
+    document.getElementById("mainMenu").classList.remove("hidden");
 
-  // Planner always starts on activity picker
+    // Update text
+    document.getElementById("mainMessage").textContent = "Will you be my Valentine? 💘";
+    document.getElementById("subMessage").textContent = "Please.";
+
+    // Confetti + hearts
+    requestAnimationFrame(() => startConfetti());
+    spawnHearts(18);
+});
+
+//  MAIN MENU BUTTONS 
+document.getElementById("mainMenuPlannerBtn").addEventListener("click", () => {
+  el.mainMenu.classList.add("hidden");
+
+  // Initialize planner when entering it
   selectedActivity = null;
   renderActivityPicker();
   updatePlannerActions();
+
+  el.planner.classList.remove("hidden");
+});
+
+document.getElementById("mainMenuGamesBtn").addEventListener("click", () => {
+  el.mainMenu.classList.add("hidden");
+  el.gamesMenu.classList.remove("hidden");
+});
+
+document.getElementById("mainMenuBackBtn").addEventListener("click", () => {
+  el.mainMenu.classList.add("hidden");
+  el.btnRow.classList.remove("hidden");
+  el.hint.classList.remove("hidden");
+
+  document.getElementById("mainMessage").textContent =
+    "Will you be my Valentine? 💖";
+  document.getElementById("subMessage").textContent =
+    "Please.";
 });
 
 /***********************
@@ -692,16 +722,8 @@ function exportTxt() {
 el.exportTxtBtn.addEventListener("click", exportTxt);
 
 el.cancelPlanBtn.addEventListener("click", () => {
-  // If you're inside an activity form, go back to the activity picker
-  if (selectedActivity) {
-    selectedActivity = null;
-    renderActivityPicker();
-    updatePlannerActions();
-    return;
-  }
-
-  // Otherwise you're already on the picker -> go back to YES/NO start screen
-  showStart();
+  el.planner.classList.add("hidden");
+  el.mainMenu.classList.remove("hidden");
 });
 
 el.donePlanningBtn.addEventListener("click", () => {
@@ -719,12 +741,9 @@ el.donePlanningBtn.addEventListener("click", () => {
 
 el.gamesBackBtn.addEventListener("click", () => {
   el.gamesMenu.classList.add("hidden");
-  showScreen(el.planner);
-
-  selectedActivity = null;
-  renderActivityPicker();
-  updatePlannerActions();
+  el.mainMenu.classList.remove("hidden");
 });
+
 
 /***********************
  * 7) Games menu + flow
