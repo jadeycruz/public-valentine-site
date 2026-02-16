@@ -1403,7 +1403,7 @@ const ScratchGame = (() => {
 
   function init() {
     const canvas = el.scratchCanvas;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
     scratching = false;
 
